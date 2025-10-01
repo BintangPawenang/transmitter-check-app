@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, Filter, Plus, AlertTriangle, CheckCircle, Clock, Camera, Edit3, Save, X, Home, List, Settings, Bell } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Search, Plus, AlertTriangle, CheckCircle, Clock, Camera, X, Home, List, Settings, Bell, Menu, ArrowLeft } from 'lucide-react';
 
-// Mock data for transmitters
+// ============================================
+// MOCK DATA
+// ============================================
 const mockTransmitters = [
   {
     id: 'PT-001',
@@ -85,30 +87,11 @@ const checklistSteps = [
   }
 ];
 
-// Design tokens
-const colors = {
-  primary: '#2563eb',
-  secondary: '#64748b',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  gray: {
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-    800: '#1e293b',
-    900: '#0f172a'
-  }
-};
-
-// Components
-const Button = ({ variant = 'primary', size = 'md', children, ...props }) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+// ============================================
+// UI COMPONENTS
+// ============================================
+const Button = ({ variant = 'primary', size = 'md', children, className = '', ...props }) => {
+  const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variants = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
@@ -119,13 +102,13 @@ const Button = ({ variant = 'primary', size = 'md', children, ...props }) => {
   
   const sizes = {
     sm: 'px-3 py-2 text-sm',
-    md: 'px-4 py-2 text-sm',
+    md: 'px-4 py-2.5 text-sm',
     lg: 'px-6 py-3 text-base'
   };
   
   return (
     <button
-      className={`${baseClasses} ${variants[variant]} ${sizes[size]}`}
+      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}
@@ -134,7 +117,7 @@ const Button = ({ variant = 'primary', size = 'md', children, ...props }) => {
 };
 
 const Card = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
+  <div className={`bg-white rounded-xl border border-gray-200 shadow-sm ${className}`}>
     {children}
   </div>
 );
@@ -148,7 +131,7 @@ const Badge = ({ variant = 'default', children }) => {
   };
   
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variants[variant]}`}>
+    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[variant]}`}>
       {children}
     </span>
   );
@@ -158,20 +141,15 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-90vh overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
           <h3 className="text-lg font-semibold">{title}</h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
             <X size={20} />
           </button>
         </div>
-        <div className="p-4">
-          {children}
-        </div>
+        <div className="p-4">{children}</div>
       </div>
     </div>
   );
@@ -181,162 +159,169 @@ const SignaturePad = ({ onSave, onClear }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
-  const startDrawing = (e) => {
+  const getCoordinates = (e) => {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
+    
+    if (e.touches && e.touches[0]) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  };
+  
+  const startDrawing = (e) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    const coords = getCoordinates(e);
     
     setIsDrawing(true);
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(coords.x, coords.y);
   };
   
   const draw = (e) => {
+    e.preventDefault();
     if (!isDrawing) return;
     
     const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
+    const coords = getCoordinates(e);
     
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.lineTo(coords.x, coords.y);
     ctx.stroke();
   };
   
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => setIsDrawing(false);
   
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    onClear?.();
+    if (onClear) onClear();
   };
   
   const saveSignature = () => {
     const canvas = canvasRef.current;
     const dataURL = canvas.toDataURL();
-    onSave?.(dataURL);
+    if (onSave) onSave(dataURL);
   };
   
   return (
-    <div className="border rounded-lg p-4">
+    <div className="border rounded-lg p-3">
       <canvas
         ref={canvasRef}
-        width={400}
-        height={200}
-        className="border border-gray-300 rounded cursor-crosshair w-full"
+        width={300}
+        height={150}
+        className="border border-gray-300 rounded cursor-crosshair w-full touch-none"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
+        onTouchStart={startDrawing}
+        onTouchMove={draw}
+        onTouchEnd={stopDrawing}
       />
-      <div className="flex gap-2 mt-4">
-        <Button variant="outline" onClick={clearCanvas}>
-          Clear
-        </Button>
-        <Button onClick={saveSignature}>
-          Save Signature
-        </Button>
+      <div className="flex gap-2 mt-3">
+        <Button variant="outline" onClick={clearCanvas} size="sm" className="flex-1">Clear</Button>
+        <Button onClick={saveSignature} size="sm" className="flex-1">Save</Button>
       </div>
     </div>
   );
 };
 
+// ============================================
+// MAIN COMPONENTS - MOBILE OPTIMIZED
+// ============================================
 const Dashboard = () => {
   const totalDevices = mockTransmitters.length;
   const activeDevices = mockTransmitters.filter(t => t.status === 'active').length;
   const warningDevices = mockTransmitters.filter(t => t.status === 'warning').length;
-  const criticalDevices = mockTransmitters.filter(t => t.status === 'critical').length;
-  
-  const overdueDevices = mockTransmitters.filter(t => 
-    new Date(t.nextCalibrationDue) < new Date()
-  ).length;
+  const overdueDevices = mockTransmitters.filter(t => new Date(t.nextCalibrationDue) < new Date()).length;
   
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Overview of instrument status and calibration schedule</p>
+    <div className="space-y-4 pb-20">
+      <div className="px-4 pt-4">
+        <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-sm text-gray-600">Overview status & calibration</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Settings className="h-6 w-6 text-blue-600" />
+      <div className="grid grid-cols-2 gap-3 px-4">
+        <Card className="p-4">
+          <div className="flex flex-col">
+            <div className="p-2 bg-blue-100 rounded-lg w-fit mb-2">
+              <Settings className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Devices</p>
-              <p className="text-2xl font-bold text-gray-900">{totalDevices}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-600">Total Devices</p>
+            <p className="text-2xl font-bold text-gray-900">{totalDevices}</p>
           </div>
         </Card>
         
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+        <Card className="p-4">
+          <div className="flex flex-col">
+            <div className="p-2 bg-green-100 rounded-lg w-fit mb-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-gray-900">{activeDevices}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-600">Active</p>
+            <p className="text-2xl font-bold text-gray-900">{activeDevices}</p>
           </div>
         </Card>
         
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-yellow-600" />
+        <Card className="p-4">
+          <div className="flex flex-col">
+            <div className="p-2 bg-yellow-100 rounded-lg w-fit mb-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Warning</p>
-              <p className="text-2xl font-bold text-gray-900">{warningDevices}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-600">Warning</p>
+            <p className="text-2xl font-bold text-gray-900">{warningDevices}</p>
           </div>
         </Card>
         
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <Clock className="h-6 w-6 text-red-600" />
+        <Card className="p-4">
+          <div className="flex flex-col">
+            <div className="p-2 bg-red-100 rounded-lg w-fit mb-2">
+              <Clock className="h-5 w-5 text-red-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Overdue</p>
-              <p className="text-2xl font-bold text-gray-900">{overdueDevices}</p>
-            </div>
+            <p className="text-xs font-medium text-gray-600">Overdue</p>
+            <p className="text-2xl font-bold text-gray-900">{overdueDevices}</p>
           </div>
         </Card>
       </div>
       
-      <Card>
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
-          <div className="space-y-4">
+      <div className="px-4">
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Recent Activity</h2>
+          <div className="space-y-3">
             <div className="flex items-center p-3 bg-green-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
-              <div>
-                <p className="text-sm font-medium">PT-001 calibration completed</p>
+              <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">PT-001 calibration completed</p>
                 <p className="text-xs text-gray-500">2 hours ago</p>
               </div>
             </div>
             <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-sm font-medium">FT-002 requires attention</p>
+              <AlertTriangle className="h-5 w-5 text-yellow-600 mr-3 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">FT-002 requires attention</p>
                 <p className="text-xs text-gray-500">1 day ago</p>
               </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
 
 const DeviceList = ({ onDeviceSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   
@@ -349,126 +334,117 @@ const DeviceList = ({ onDeviceSelect }) => {
   });
   
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return <Badge variant="success">Active</Badge>;
-      case 'warning':
-        return <Badge variant="warning">Warning</Badge>;
-      case 'critical':
-        return <Badge variant="danger">Critical</Badge>;
-      default:
-        return <Badge>Unknown</Badge>;
-    }
-  };
-  
-  const getHealthColor = (health) => {
-    switch (health) {
-      case 'good':
-        return 'text-green-600';
-      case 'fair':
-        return 'text-yellow-600';
-      case 'poor':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
+    if (status === 'active') return <Badge variant="success">Active</Badge>;
+    if (status === 'warning') return <Badge variant="warning">Warning</Badge>;
+    if (status === 'critical') return <Badge variant="danger">Critical</Badge>;
+    return <Badge>Unknown</Badge>;
   };
   
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Devices</h1>
-          <p className="text-gray-600">Manage your transmitter inventory</p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Device
-        </Button>
-      </div>
-      
-      <Card className="p-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search devices..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+    <div className="pb-20">
+      <div className="px-4 pt-4 pb-3 bg-white border-b sticky top-0 z-10">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Devices</h1>
+            <p className="text-sm text-gray-600">{filteredDevices.length} transmitters</p>
           </div>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="Pressure">Pressure</option>
-            <option value="Flow">Flow</option>
-            <option value="Level">Level</option>
-            <option value="Temperature">Temperature</option>
-          </select>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="warning">Warning</option>
-            <option value="critical">Critical</option>
-          </select>
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
         
-        <div className="grid gap-4">
-          {filteredDevices.map(device => (
-            <div
-              key={device.id}
-              className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-              onClick={() => onDeviceSelect(device)}
+        <div className="relative mb-2">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <input
+            type="text"
+            placeholder="Search devices..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="text-sm text-blue-600 font-medium"
+        >
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </button>
+        
+        {showFilters && (
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <select
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-gray-900">{device.name}</h3>
-                    {getStatusBadge(device.status)}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                    <span><strong>ID:</strong> {device.id}</span>
-                    <span><strong>Type:</strong> {device.type}</span>
-                    <span><strong>Location:</strong> {device.location}</span>
-                  </div>
-                  <div className="mt-2 text-sm">
-                    <span className="text-gray-600">Health: </span>
-                    <span className={`font-medium ${getHealthColor(device.healthIndicator)}`}>
-                      {device.healthIndicator}
-                    </span>
-                    <span className="text-gray-600 ml-4">Next Cal: </span>
-                    <span className={new Date(device.nextCalibrationDue) < new Date() ? 'text-red-600 font-medium' : 'text-gray-900'}>
-                      {new Date(device.nextCalibrationDue).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <Button variant="outline" size="sm">
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {filteredDevices.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No devices found matching your criteria.</p>
+              <option value="all">All Types</option>
+              <option value="Pressure">Pressure</option>
+              <option value="Flow">Flow</option>
+              <option value="Level">Level</option>
+              <option value="Temperature">Temperature</option>
+            </select>
+            <select
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="warning">Warning</option>
+              <option value="critical">Critical</option>
+            </select>
           </div>
         )}
-      </Card>
+      </div>
+      
+      <div className="px-4 pt-3 space-y-3">
+        {filteredDevices.map(device => (
+          <div
+            key={device.id}
+            onClick={() => onDeviceSelect(device)}
+            className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer active:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1 min-w-0 mr-2">
+                <h3 className="font-semibold text-gray-900 text-sm truncate">{device.name}</h3>
+                <p className="text-xs text-gray-500">{device.id}</p>
+              </div>
+              {getStatusBadge(device.status)}
+            </div>
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <span>Type:</span>
+                <span className="font-medium">{device.type}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Location:</span>
+                <span className="font-medium truncate ml-2">{device.location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Next Cal:</span>
+                <span className={`font-medium ${new Date(device.nextCalibrationDue) < new Date() ? 'text-red-600' : ''}`}>
+                  {new Date(device.nextCalibrationDue).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Tap to view details</span>
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        ))}
+        
+        {filteredDevices.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No devices found</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -479,121 +455,101 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
   const isOverdue = new Date(device.nextCalibrationDue) < new Date();
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={onBack}>
-          ← Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{device.name}</h1>
-          <p className="text-gray-600">{device.id} • {device.location}</p>
+    <div className="pb-20">
+      <div className="px-4 pt-4 pb-3 bg-white border-b sticky top-0 z-10">
+        <div className="flex items-center gap-3 mb-2">
+          <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 truncate">{device.name}</h1>
+            <p className="text-sm text-gray-600 truncate">{device.id}</p>
+          </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Device Information</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Type:</span>
-                <span className="font-medium">{device.type}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Range:</span>
-                <span className="font-medium">{device.range}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Accuracy:</span>
-                <span className="font-medium">{device.accuracy}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Status:</span>
-                <div>
-                  {device.status === 'active' && <Badge variant="success">Active</Badge>}
-                  {device.status === 'warning' && <Badge variant="warning">Warning</Badge>}
-                  {device.status === 'critical' && <Badge variant="danger">Critical</Badge>}
-                </div>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Health:</span>
-                <span className={`font-medium ${
-                  device.healthIndicator === 'good' ? 'text-green-600' :
-                  device.healthIndicator === 'fair' ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {device.healthIndicator}
-                </span>
+      <div className="px-4 pt-4 space-y-3">
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Device Info</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Type:</span>
+              <span className="font-medium">{device.type}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Location:</span>
+              <span className="font-medium text-right">{device.location}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Range:</span>
+              <span className="font-medium">{device.range}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Accuracy:</span>
+              <span className="font-medium">{device.accuracy}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Status:</span>
+              <div>
+                {device.status === 'active' && <Badge variant="success">Active</Badge>}
+                {device.status === 'warning' && <Badge variant="warning">Warning</Badge>}
+                {device.status === 'critical' && <Badge variant="danger">Critical</Badge>}
               </div>
             </div>
           </div>
         </Card>
         
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Calibration Status</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Last Calibration:</span>
-                <span className="font-medium">
-                  {new Date(device.lastCalibration).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Next Due:</span>
-                <span className={`font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                  {new Date(device.nextCalibrationDue).toLocaleDateString()}
-                  {isOverdue && ' (Overdue)'}
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Calibration</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Last Cal:</span>
+              <span className="font-medium">
+                {new Date(device.lastCalibration).toLocaleDateString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Next Due:</span>
+              <span className={`font-medium ${isOverdue ? 'text-red-600' : ''}`}>
+                {new Date(device.nextCalibrationDue).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+          
+          {isOverdue && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                <span className="text-sm font-medium text-red-800">
+                  Calibration overdue - immediate attention required
                 </span>
               </div>
             </div>
-            
-            {isOverdue && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                  <span className="text-sm font-medium text-red-800">
-                    Calibration overdue - immediate attention required
-                  </span>
-                </div>
+          )}
+          
+          <Button 
+            className="w-full mt-4" 
+            onClick={onStartInspection}
+            variant={isOverdue ? "danger" : "primary"}
+          >
+            Start Inspection
+          </Button>
+        </Card>
+        
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">History</h2>
+          <div className="space-y-3">
+            <div className="flex items-start justify-between p-3 border rounded-lg">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-gray-900">Routine Inspection</p>
+                <p className="text-xs text-gray-600">John Doe</p>
+                <p className="text-xs text-gray-500">Jan 15, 2024</p>
               </div>
-            )}
-            
-            <div className="mt-6">
-              <Button 
-                className="w-full" 
-                onClick={onStartInspection}
-                variant={isOverdue ? "danger" : "primary"}
-              >
-                Start Inspection
-              </Button>
+              <Badge variant="success">Passed</Badge>
             </div>
           </div>
         </Card>
       </div>
-      
-      <Card>
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Inspection History</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">Routine Inspection</p>
-                <p className="text-sm text-gray-600">Completed by John Doe</p>
-                <p className="text-xs text-gray-500">January 15, 2024</p>
-              </div>
-              <Badge variant="success">Passed</Badge>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">Calibration Check</p>
-                <p className="text-sm text-gray-600">Completed by Jane Smith</p>
-                <p className="text-xs text-gray-500">October 10, 2023</p>
-              </div>
-              <Badge variant="warning">Minor Issues</Badge>
-            </div>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 };
@@ -607,20 +563,14 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
   const handleCheckboxChange = (stepId, itemId, checked) => {
     setChecklistData(prev => ({
       ...prev,
-      [stepId]: {
-        ...prev[stepId],
-        [itemId]: checked
-      }
+      [stepId]: { ...prev[stepId], [itemId]: checked }
     }));
   };
   
   const handleTextareaChange = (stepId, itemId, value) => {
     setChecklistData(prev => ({
       ...prev,
-      [stepId]: {
-        ...prev[stepId],
-        [itemId]: value
-      }
+      [stepId]: { ...prev[stepId], [itemId]: value }
     }));
   };
   
@@ -637,6 +587,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
       };
       reader.readAsDataURL(file);
     });
+    e.target.value = '';
   };
   
   const removePhoto = (photoId) => {
@@ -656,6 +607,10 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
   };
   
   const handleComplete = () => {
+    if (!signature) {
+      alert('Signature is required before completing inspection');
+      return;
+    }
     const inspectionData = {
       deviceId: device.id,
       timestamp: new Date().toISOString(),
@@ -671,154 +626,198 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
   const progress = ((currentStep + 1) / checklistSteps.length) * 100;
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inspection Checklist</h1>
-          <p className="text-gray-600">{device.name} ({device.id})</p>
+    <div className="pb-20">
+      <div className="px-4 pt-4 pb-3 bg-white border-b sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1 min-w-0 mr-3">
+            <h1 className="text-lg font-bold text-gray-900">Inspection</h1>
+            <p className="text-sm text-gray-600 truncate">{device.name}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
         </div>
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
+        
+        <div className="mb-2">
+          <div className="flex justify-between text-xs text-gray-600 mb-1.5">
+            <span>Step {currentStep + 1} of {checklistSteps.length}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
       </div>
       
-      <Card>
-        <div className="p-6">
-          <div className="mb-6">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Step {currentStep + 1} of {checklistSteps.length}</span>
-              <span>{Math.round(progress)}% Complete</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
+      <div className="px-4 pt-4">
+        <Card className="p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            {currentStepData.title}
+          </h2>
           
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              {currentStepData.title}
-            </h2>
-            
-            <div className="space-y-4">
-              {currentStepData.items.map(item => (
-                <div key={item.id}>
-                  {item.type === 'checkbox' && (
-                    <label className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        checked={checklistData[currentStepData.id]?.[item.id] || false}
-                        onChange={(e) => handleCheckboxChange(currentStepData.id, item.id, e.target.checked)}
-                      />
-                      <span className="text-gray-900">{item.label}</span>
+          <div className="space-y-4">
+            {currentStepData.items.map(item => (
+              <div key={item.id}>
+                {item.type === 'checkbox' && (
+                  <label className="flex items-start space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      checked={checklistData[currentStepData.id]?.[item.id] || false}
+                      onChange={(e) => handleCheckboxChange(currentStepData.id, item.id, e.target.checked)}
+                    />
+                    <span className="text-sm text-gray-900 flex-1">{item.label}</span>
+                  </label>
+                )}
+                
+                {item.type === 'textarea' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {item.label}
                     </label>
-                  )}
-                  
-                  {item.type === 'textarea' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {item.label}
-                      </label>
-                      <textarea
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        rows="3"
-                        value={checklistData[currentStepData.id]?.[item.id] || ''}
-                        onChange={(e) => handleTextareaChange(currentStepData.id, item.id, e.target.value)}
-                        placeholder="Enter additional notes..."
+                    <textarea
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows="4"
+                      value={checklistData[currentStepData.id]?.[item.id] || ''}
+                      onChange={(e) => handleTextareaChange(currentStepData.id, item.id, e.target.value)}
+                      placeholder="Enter additional notes here..."
+                    />
+                  </div>
+                )}
+                
+                {item.type === 'file' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {item.label}
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                        id="photo-upload"
                       />
-                    </div>
-                  )}
-                  
-                  {item.type === 'file' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {item.label}
+                      <label htmlFor="photo-upload" className="cursor-pointer block">
+                        <Camera className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                        <p className="text-sm font-medium text-gray-700 mb-1">Tap to upload photos</p>
+                        <p className="text-xs text-gray-500">JPG, PNG up to 10MB</p>
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={handlePhotoUpload}
-                          className="hidden"
-                          id="photo-upload"
-                        />
-                        <label htmlFor="photo-upload" className="cursor-pointer">
-                          <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                          <p className="text-gray-600">Click to upload photos</p>
-                        </label>
+                    </div>
+                    
+                    {photos.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">
+                          Uploaded Photos ({photos.length})
+                        </h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          {photos.map(photo => (
+                            <div key={photo.id} className="relative group">
+                              <img
+                                src={photo.url}
+                                alt={photo.name}
+                                className="w-full h-20 object-cover rounded-lg border-2 border-gray-200"
+                              />
+                              <button
+                                onClick={() => removePhoto(photo.id)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors"
+                              >
+                                <X size={16} />
+                              </button>
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all"></div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      
-                      {photos.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Photos</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {photos.map(photo => (
-                              <div key={photo.id} className="relative">
-                                <img
-                                  src={photo.url}
-                                  alt={photo.name}
-                                  className="w-full h-24 object-cover rounded-lg"
-                                />
-                                <button
-                                  onClick={() => removePhoto(photo.id)}
-                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {item.type === 'signature' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {item.label}
-                      </label>
-                      <SignaturePad
-                        onSave={setSignature}
-                        onClear={() => setSignature(null)}
-                      />
-                      {signature && (
-                        <div className="mt-2">
-                          <p className="text-sm text-green-600">✓ Signature captured</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    )}
+                  </div>
+                )}
+                
+                {item.type === 'signature' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {item.label} <span className="text-red-500">*</span>
+                    </label>
+                    <SignaturePad
+                      onSave={(sig) => {
+                        setSignature(sig);
+                        alert('Signature saved successfully!');
+                      }}
+                      onClear={() => setSignature(null)}
+                    />
+                    {signature && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-700 flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Signature captured successfully
+                        </p>
+                      </div>
+                    )}
+                    {!signature && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">
+                          Draw your signature above and tap "Save"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+        </Card>
+        
+        <div className="flex gap-3 mb-4">
+          <Button
+            variant="outline"
+            onClick={prevStep}
+            disabled={currentStep === 0}
+            className="flex-1"
+            size="lg"
+          >
+            ← Previous
+          </Button>
           
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={prevStep}
-              disabled={currentStep === 0}
+          {currentStep === checklistSteps.length - 1 ? (
+            <Button 
+              onClick={handleComplete} 
+              className="flex-1"
+              size="lg"
+              disabled={!signature}
             >
-              Previous
+              Complete ✓
             </Button>
-            
-            {currentStep === checklistSteps.length - 1 ? (
-              <Button onClick={handleComplete}>
-                Complete Inspection
-              </Button>
-            ) : (
-              <Button onClick={nextStep}>
-                Next
-              </Button>
-            )}
-          </div>
+          ) : (
+            <Button 
+              onClick={nextStep} 
+              className="flex-1"
+              size="lg"
+            >
+              Next →
+            </Button>
+          )}
         </div>
-      </Card>
+        
+        {/* Step Indicator */}
+        <div className="flex justify-center gap-2 pb-4">
+          {checklistSteps.map((step, idx) => (
+            <div
+              key={step.id}
+              className={`h-2 rounded-full transition-all ${
+                idx === currentStep 
+                  ? 'w-8 bg-blue-600' 
+                  : idx < currentStep 
+                  ? 'w-2 bg-green-500' 
+                  : 'w-2 bg-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -828,7 +827,6 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
   
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
     onSubmit();
     setIsSubmitting(false);
@@ -853,98 +851,88 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
   const completionPercentage = Math.round((status.completed / status.total) * 100);
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Review & Submit</h1>
-          <p className="text-gray-600">Review your inspection before submitting</p>
+    <div className="pb-20">
+      <div className="px-4 pt-4 pb-3 bg-white border-b sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex-1 min-w-0 mr-3">
+            <h1 className="text-lg font-bold text-gray-900">Review</h1>
+            <p className="text-sm text-gray-600 truncate">{device.name}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onBack}>
+            Back
+          </Button>
         </div>
-        <Button variant="outline" onClick={onBack}>
-          ← Back to Checklist
-        </Button>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Device Information</h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Device:</span>
-                <span>{device.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">ID:</span>
-                <span>{device.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Location:</span>
-                <span>{device.location}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Inspector:</span>
-                <span>{inspectionData.inspector}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Date:</span>
-                <span>{new Date(inspectionData.timestamp).toLocaleDateString()}</span>
-              </div>
+      <div className="px-4 pt-4 space-y-3">
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Device Info</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Device:</span>
+              <span className="font-medium text-right">{device.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">ID:</span>
+              <span className="font-medium">{device.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Inspector:</span>
+              <span className="font-medium">{inspectionData.inspector}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Date:</span>
+              <span className="font-medium">{new Date(inspectionData.timestamp).toLocaleDateString()}</span>
             </div>
           </div>
         </Card>
         
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Completion Status</h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
-                  <span>Overall Progress</span>
-                  <span>{completionPercentage}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full"
-                    style={{ width: `${completionPercentage}%` }}
-                  ></div>
-                </div>
-              </div>
-              
-              <div className="text-sm">
-                <p className="text-gray-600">
-                  {status.completed} of {status.total} items completed
-                </p>
-                <p className="text-gray-600">
-                  {inspectionData.photos.length} photo(s) attached
-                </p>
-                <p className="text-gray-600">
-                  Signature: {inspectionData.signature ? '✓ Provided' : '✗ Missing'}
-                </p>
-              </div>
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Progress</h2>
+          <div>
+            <div className="flex justify-between text-sm text-gray-600 mb-1.5">
+              <span>Overall</span>
+              <span>{completionPercentage}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+              <div
+                className="bg-green-600 h-2 rounded-full"
+                style={{ width: `${completionPercentage}%` }}
+              ></div>
+            </div>
+            
+            <div className="space-y-1 text-sm">
+              <p className="text-gray-600">
+                {status.completed} of {status.total} items completed
+              </p>
+              <p className="text-gray-600">
+                {inspectionData.photos.length} photo(s) attached
+              </p>
+              <p className="text-gray-600">
+                Signature: {inspectionData.signature ? '✓ Provided' : '✗ Missing'}
+              </p>
             </div>
           </div>
         </Card>
-      </div>
-      
-      <Card>
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Checklist Summary</h2>
-          <div className="space-y-4">
+        
+        <Card className="p-4">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Checklist</h2>
+          <div className="space-y-3">
             {checklistSteps.map(step => {
               const stepData = inspectionData.checklist[step.id] || {};
               const completedInStep = step.items.filter(item => stepData[item.id]).length;
               
               return (
-                <div key={step.id} className="border rounded-lg p-4">
+                <div key={step.id} className="border rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-medium text-gray-900">{step.title}</h3>
-                    <span className="text-sm text-gray-600">
+                    <h3 className="font-medium text-sm text-gray-900">{step.title}</h3>
+                    <span className="text-xs text-gray-600">
                       {completedInStep}/{step.items.length}
                     </span>
                   </div>
                   <div className="space-y-1">
                     {step.items.map(item => (
-                      <div key={item.id} className="flex items-center text-sm">
+                      <div key={item.id} className="flex items-center text-xs">
                         <span className={`mr-2 ${stepData[item.id] ? 'text-green-600' : 'text-gray-400'}`}>
                           {stepData[item.id] ? '✓' : '○'}
                         </span>
@@ -956,72 +944,69 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
               );
             })}
           </div>
-        </div>
-      </Card>
-      
-      {inspectionData.photos.length > 0 && (
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Attached Photos ({inspectionData.photos.length})
+        </Card>
+        
+        {inspectionData.photos.length > 0 && (
+          <Card className="p-4">
+            <h2 className="text-base font-semibold text-gray-900 mb-3">
+              Photos ({inspectionData.photos.length})
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               {inspectionData.photos.map(photo => (
                 <div key={photo.id}>
                   <img
                     src={photo.url}
                     alt={photo.name}
-                    className="w-full h-24 object-cover rounded-lg border"
+                    className="w-full h-20 object-cover rounded-lg border"
                   />
-                  <p className="text-xs text-gray-500 mt-1 truncate">{photo.name}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </Card>
-      )}
-      
-      <Card>
-        <div className="p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Ready to Submit?</h2>
-              <p className="text-gray-600 text-sm">
-                This inspection will be saved and synced to the server.
-              </p>
-            </div>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !inspectionData.signature}
-              className="min-w-32"
-            >
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Submitting...
-                </div>
-              ) : (
-                'Submit Inspection'
-              )}
-            </Button>
+          </Card>
+        )}
+        
+        <Card className="p-4">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Ready to Submit?</h2>
+            <p className="text-sm text-gray-600">
+              This inspection will be saved
+            </p>
           </div>
           
           {!inspectionData.signature && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-yellow-800">
-                  Signature is required before submitting
+                  Signature required
                 </span>
               </div>
             </div>
           )}
-        </div>
-      </Card>
+          
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !inspectionData.signature}
+            className="w-full"
+          >
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Submitting...
+              </div>
+            ) : (
+              'Submit Inspection'
+            )}
+          </Button>
+        </Card>
+      </div>
     </div>
   );
 };
 
+// ============================================
+// MAIN APP COMPONENT - MOBILE VERSION
+// ============================================
 const App = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -1044,62 +1029,33 @@ const App = () => {
   
   const handleSubmitInspection = () => {
     setShowSuccessModal(true);
-    setCurrentView('dashboard');
-    setSelectedDevice(null);
-    setInspectionData(null);
+    setTimeout(() => {
+      setCurrentView('dashboard');
+      setSelectedDevice(null);
+      setInspectionData(null);
+    }, 2000);
   };
   
-  const navigation = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'devices', label: 'Devices', icon: List },
-  ];
-  
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <div className="flex items-center">
-                <Settings className="h-8 w-8 text-blue-600 mr-3" />
-                <h1 className="text-xl font-bold text-gray-900">
-                  Transmitter Check
-                </h1>
-              </div>
-              <div className="ml-10 flex space-x-8">
-                {navigation.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => setCurrentView(item.id)}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      currentView === item.id
-                        ? 'text-blue-600 bg-blue-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <item.icon className="h-4 w-4 mr-2" />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-400 hover:text-gray-600 relative">
-                <Bell className="h-6 w-6" />
-                <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
-              </button>
-              <div className="h-8 w-8 bg-gray-300 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-700">JD</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 max-w-md mx-auto relative">
+      {/* Header - Mobile */}
+      <header className="bg-white border-b sticky top-0 z-20">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center">
+            <Settings className="h-7 w-7 text-blue-600 mr-2" />
+            <h1 className="text-base font-bold text-gray-900">
+              Transmitter Check
+            </h1>
           </div>
+          <button className="p-2 text-gray-400 hover:text-gray-600 relative">
+            <Bell className="h-6 w-6" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+          </button>
         </div>
-      </nav>
+      </header>
       
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="min-h-screen">
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'devices' && (
           <DeviceList onDeviceSelect={handleDeviceSelect} />
@@ -1128,23 +1084,48 @@ const App = () => {
         )}
       </main>
       
+      {/* Bottom Navigation - Mobile */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t max-w-md mx-auto z-20">
+        <div className="flex justify-around">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className={`flex-1 flex flex-col items-center py-3 ${
+              currentView === 'dashboard'
+                ? 'text-blue-600'
+                : 'text-gray-400'
+            }`}
+          >
+            <Home className="h-6 w-6 mb-1" />
+            <span className="text-xs font-medium">Home</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('devices')}
+            className={`flex-1 flex flex-col items-center py-3 ${
+              currentView === 'devices' || currentView === 'device-detail' || currentView === 'inspection' || currentView === 'review'
+                ? 'text-blue-600'
+                : 'text-gray-400'
+            }`}
+          >
+            <List className="h-6 w-6 mb-1" />
+            <span className="text-xs font-medium">Devices</span>
+          </button>
+        </div>
+      </nav>
+      
       {/* Success Modal */}
       <Modal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        title="Inspection Submitted"
+        title="Success"
       >
         <div className="text-center py-4">
           <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Inspection Successfully Submitted!
+            Inspection Submitted!
           </h3>
-          <p className="text-gray-600 mb-6">
-            Your inspection data has been saved and will be synced when online.
+          <p className="text-sm text-gray-600 mb-4">
+            Your inspection has been saved successfully
           </p>
-          <Button onClick={() => setShowSuccessModal(false)}>
-            Close
-          </Button>
         </div>
       </Modal>
     </div>
