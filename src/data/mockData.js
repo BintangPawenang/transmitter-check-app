@@ -49,18 +49,6 @@ export const mockTransmitters = [
     healthIndicator: 'good',
     range: '0-200°C',
     accuracy: '±0.5°C'
-  },
-  {
-    id: 'PT-005',
-    name: 'Pressure Transmitter 005',
-    type: 'Pressure',
-    location: 'Unit E - Compressor',
-    status: 'active',
-    lastCalibration: '2024-02-10',
-    nextCalibrationDue: '2025-02-10',
-    healthIndicator: 'good',
-    range: '0-50 bar',
-    accuracy: '±0.1%'
   }
 ];
 

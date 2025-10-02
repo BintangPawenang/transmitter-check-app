@@ -1,96 +1,183 @@
-import React, { useState, useRef } from 'react';
-import { Search, Plus, AlertTriangle, CheckCircle, Clock, Camera, X, Home, List, Settings, Bell, Menu, ArrowLeft } from 'lucide-react';
+import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
+import { Search, Plus, AlertTriangle, CheckCircle, Clock, Camera, X, Home, List, Settings, Bell, ArrowLeft, Edit2, Trash2, WifiOff, Wifi } from 'lucide-react';
+import { z } from 'zod';
 
 // ============================================
-// MOCK DATA
+// DESIGN TOKENS (CSS Variables Ready)
 // ============================================
-const mockTransmitters = [
-  {
-    id: 'PT-001',
-    name: 'Pressure Transmitter 001',
-    type: 'Pressure',
-    location: 'Unit A - Reactor',
-    status: 'active',
-    lastCalibration: '2024-01-15',
-    nextCalibrationDue: '2025-01-15',
-    healthIndicator: 'good',
-    range: '0-100 bar',
-    accuracy: '±0.1%'
+const designTokens = {
+  colors: {
+    primary: { main: '#2563eb', light: '#dbeafe', dark: '#1e40af' },
+    success: { main: '#16a34a', light: '#dcfce7', dark: '#15803d' },
+    warning: { main: '#ca8a04', light: '#fef9c3', dark: '#a16207' },
+    danger: { main: '#dc2626', light: '#fee2e2', dark: '#b91c1c' },
+    gray: { 50: '#f9fafb', 100: '#f3f4f6', 200: '#e5e7eb', 300: '#d1d5db', 600: '#4b5563', 900: '#111827' }
   },
-  {
-    id: 'FT-002',
-    name: 'Flow Transmitter 002',
-    type: 'Flow',
-    location: 'Unit B - Pipeline',
-    status: 'warning',
-    lastCalibration: '2023-08-20',
-    nextCalibrationDue: '2024-08-20',
-    healthIndicator: 'fair',
-    range: '0-500 L/min',
-    accuracy: '±0.2%'
-  },
-  {
-    id: 'LT-003',
-    name: 'Level Transmitter 003',
-    type: 'Level',
-    location: 'Tank C - Storage',
-    status: 'critical',
-    lastCalibration: '2023-06-10',
-    nextCalibrationDue: '2024-06-10',
-    healthIndicator: 'poor',
-    range: '0-10 m',
-    accuracy: '±0.15%'
-  },
-  {
-    id: 'TT-004',
-    name: 'Temperature Transmitter 004',
-    type: 'Temperature',
-    location: 'Unit D - Heat Exchanger',
-    status: 'active',
-    lastCalibration: '2024-03-01',
-    nextCalibrationDue: '2025-03-01',
-    healthIndicator: 'good',
-    range: '0-200°C',
-    accuracy: '±0.5°C'
-  }
-];
+  spacing: { xs: '4px', sm: '8px', md: '16px', lg: '24px', xl: '32px' },
+  borderRadius: { sm: '4px', md: '8px', lg: '12px', xl: '16px' },
+  fontSize: { xs: '12px', sm: '14px', base: '16px', lg: '18px', xl: '20px' }
+};
 
-const checklistSteps = [
-  {
-    id: 'visual',
-    title: 'Visual Inspection',
-    items: [
-      { id: 'housing', label: 'Housing condition (no cracks, corrosion)', type: 'checkbox' },
-      { id: 'connections', label: 'Electrical connections secure', type: 'checkbox' },
-      { id: 'cables', label: 'Cable condition good', type: 'checkbox' },
-      { id: 'mounting', label: 'Mounting secure', type: 'checkbox' }
-    ]
-  },
-  {
-    id: 'functional',
-    title: 'Functional Test',
-    items: [
-      { id: 'display', label: 'Display readable', type: 'checkbox' },
-      { id: 'response', label: 'Response time acceptable', type: 'checkbox' },
-      { id: 'accuracy', label: 'Reading accuracy within spec', type: 'checkbox' },
-      { id: 'alarms', label: 'Alarm functions tested', type: 'checkbox' }
-    ]
-  },
-  {
-    id: 'documentation',
-    title: 'Documentation',
-    items: [
-      { id: 'photos', label: 'Photos taken', type: 'file' },
-      { id: 'notes', label: 'Additional notes', type: 'textarea' },
-      { id: 'signature', label: 'Inspector signature', type: 'signature' }
-    ]
-  }
-];
+// Apply CSS Variables
+if (typeof document !== 'undefined') {
+  const root = document.documentElement;
+  root.style.setProperty('--color-primary', designTokens.colors.primary.main);
+  root.style.setProperty('--color-success', designTokens.colors.success.main);
+  root.style.setProperty('--spacing-md', designTokens.spacing.md);
+}
 
 // ============================================
-// UI COMPONENTS
+// ZOD VALIDATION SCHEMAS
 // ============================================
-const Button = ({ variant = 'primary', size = 'md', children, className = '', ...props }) => {
+const transmitterSchema = z.object({
+  id: z.string().min(1, 'ID is required').regex(/^[A-Z]{2}-\d{3}$/, 'Format: XX-000'),
+  name: z.string().min(5, 'Name must be at least 5 characters'),
+  type: z.enum(['Pressure', 'Flow', 'Level', 'Temperature']),
+  location: z.string().min(5, 'Location is required'),
+  status: z.enum(['active', 'warning', 'critical']),
+  range: z.string().min(3, 'Range is required'),
+  accuracy: z.string().min(2, 'Accuracy is required'),
+  lastCalibration: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+  nextCalibrationDue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+});
+
+const inspectionSchema = z.object({
+  deviceId: z.string(),
+  inspector: z.string().min(3, 'Inspector name required'),
+  checklist: z.record(z.any()),
+  photos: z.array(z.any()),
+  signature: z.string().min(10, 'Signature required'),
+});
+
+// ============================================
+// DATA CONTEXT (CRUD + Persistence)
+// ============================================
+const DataContext = createContext();
+
+const DataProvider = ({ children }) => {
+  const [transmitters, setTransmitters] = useState(() => {
+    const saved = localStorage.getItem('transmitters');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'PT-001',
+        name: 'Pressure Transmitter 001',
+        type: 'Pressure',
+        location: 'Unit A - Reactor',
+        status: 'active',
+        lastCalibration: '2024-01-15',
+        nextCalibrationDue: '2025-01-15',
+        healthIndicator: 'good',
+        range: '0-100 bar',
+        accuracy: '±0.1%'
+      },
+      {
+        id: 'FT-002',
+        name: 'Flow Transmitter 002',
+        type: 'Flow',
+        location: 'Unit B - Pipeline',
+        status: 'warning',
+        lastCalibration: '2023-08-20',
+        nextCalibrationDue: '2024-08-20',
+        healthIndicator: 'fair',
+        range: '0-500 L/min',
+        accuracy: '±0.2%'
+      },
+      {
+        id: 'LT-003',
+        name: 'Level Transmitter 003',
+        type: 'Level',
+        location: 'Tank C - Storage',
+        status: 'critical',
+        lastCalibration: '2023-06-10',
+        nextCalibrationDue: '2024-06-10',
+        healthIndicator: 'poor',
+        range: '0-10 m',
+        accuracy: '±0.15%'
+      },
+    ];
+  });
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingSync, setPendingSync] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (pendingSync) {
+        console.log('Syncing data...');
+        setTimeout(() => setPendingSync(false), 2000);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [pendingSync]);
+
+  useEffect(() => {
+    localStorage.setItem('transmitters', JSON.stringify(transmitters));
+    if (!isOnline) setPendingSync(true);
+  }, [transmitters, isOnline]);
+
+  const createTransmitter = (data) => {
+    try {
+      transmitterSchema.parse(data);
+      setTransmitters(prev => [...prev, data]);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return { success: false, errors: error.flatten().fieldErrors };
+      }
+      return { success: false, errors: { general: 'Unknown error' } };
+    }
+  };
+
+  const updateTransmitter = (id, data) => {
+    try {
+      transmitterSchema.parse(data);
+      setTransmitters(prev => prev.map(t => t.id === id ? data : t));
+      return { success: true };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return { success: false, errors: error.flatten().fieldErrors };
+      }
+      return { success: false, errors: { general: 'Unknown error' } };
+    }
+  };
+
+  const deleteTransmitter = (id) => {
+    setTransmitters(prev => prev.filter(t => t.id !== id));
+  };
+
+  return (
+    <DataContext.Provider value={{
+      transmitters,
+      isOnline,
+      pendingSync,
+      createTransmitter,
+      updateTransmitter,
+      deleteTransmitter
+    }}>
+      {children}
+    </DataContext.Provider>
+  );
+};
+
+const useData = () => {
+  const context = useContext(DataContext);
+  if (!context) throw new Error('useData must be used within DataProvider');
+  return context;
+};
+
+// ============================================
+// ATOMS (Basic Components)
+// ============================================
+const Button = ({ variant = 'primary', size = 'md', children, className = '', icon: Icon, ariaLabel, ...props }) => {
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variants = {
@@ -109,15 +196,66 @@ const Button = ({ variant = 'primary', size = 'md', children, className = '', ..
   return (
     <button
       className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className}`}
+      aria-label={ariaLabel}
       {...props}
     >
+      {Icon && <Icon className={children ? 'mr-2' : ''} size={18} />}
       {children}
     </button>
   );
 };
 
-const Card = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-xl border border-gray-200 shadow-sm ${className}`}>
+const Input = ({ label, error, required, ...props }) => (
+  <div className="mb-4">
+    {label && (
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label} {required && <span className="text-red-600">*</span>}
+      </label>
+    )}
+    <input
+      className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+        error ? 'border-red-500' : 'border-gray-300'
+      }`}
+      aria-invalid={error ? 'true' : 'false'}
+      aria-describedby={error ? `${label}-error` : undefined}
+      {...props}
+    />
+    {error && <p id={`${label}-error`} className="text-red-500 text-xs mt-1" role="alert">{error}</p>}
+  </div>
+);
+
+const Select = ({ label, error, required, options = [], ...props }) => (
+  <div className="mb-4">
+    {label && (
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        {label} {required && <span className="text-red-600">*</span>}
+      </label>
+    )}
+    <select
+      className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+        error ? 'border-red-500' : 'border-gray-300'
+      }`}
+      aria-invalid={error ? 'true' : 'false'}
+      {...props}
+    >
+      <option value="">Select...</option>
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+    {error && <p className="text-red-500 text-xs mt-1" role="alert">{error}</p>}
+  </div>
+);
+
+const Card = ({ children, className = '', onClick, ariaLabel }) => (
+  <div 
+    className={`bg-white rounded-xl border border-gray-200 shadow-sm ${className}`}
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    aria-label={ariaLabel}
+  >
     {children}
   </div>
 );
@@ -137,20 +275,72 @@ const Badge = ({ variant = 'default', children }) => {
   );
 };
 
-const Modal = ({ isOpen, onClose, title, children }) => {
+// ============================================
+// MOLECULES (Composite Components)
+// ============================================
+const Modal = ({ isOpen, onClose, title, children, size = 'sm' }) => {
   if (!isOpen) return null;
   
+  const sizes = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg'
+  };
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
-            <X size={20} />
+    <div 
+      className="fixed inset-0 bg-gray-900 bg-opacity-40 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div 
+        className={`bg-white rounded-2xl w-full ${sizes[size]} shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h3 id="modal-title" className="text-lg font-semibold text-gray-900">{title}</h3>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close modal"
+          >
+            <X size={20} className="text-gray-500" />
           </button>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="px-6 py-4">
+          {children}
+        </div>
       </div>
+    </div>
+  );
+};
+
+const OfflineBanner = () => {
+  const { isOnline, pendingSync } = useData();
+  
+  if (isOnline && !pendingSync) return null;
+  
+  return (
+    <div 
+      className={`${isOnline ? 'bg-green-500' : 'bg-yellow-500'} text-white px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2`}
+      role="alert"
+    >
+      {isOnline ? (
+        <>
+          <Wifi size={16} />
+          Syncing data...
+        </>
+      ) : (
+        <>
+          <WifiOff size={16} />
+          You are offline. Changes will sync when reconnected.
+        </>
+      )}
     </div>
   );
 };
@@ -158,6 +348,16 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 const SignaturePad = ({ onSave, onClear }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  
+  useEffect(() => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#1e40af';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+    }
+  }, []);
   
   const getCoordinates = (e) => {
     const canvas = canvasRef.current;
@@ -227,6 +427,7 @@ const SignaturePad = ({ onSave, onClear }) => {
         onTouchStart={startDrawing}
         onTouchMove={draw}
         onTouchEnd={stopDrawing}
+        aria-label="Signature pad - draw your signature"
       />
       <div className="flex gap-2 mt-3">
         <Button variant="outline" onClick={clearCanvas} size="sm" className="flex-1">Clear</Button>
@@ -237,13 +438,199 @@ const SignaturePad = ({ onSave, onClear }) => {
 };
 
 // ============================================
-// MAIN COMPONENTS - MOBILE OPTIMIZED
+// ORGANISMS (Complex Components)
+// ============================================
+const CreateEditTransmitterModal = ({ isOpen, onClose, device = null }) => {
+  const { createTransmitter, updateTransmitter } = useData();
+  
+  
+  const initialFormData = {
+    id: '',
+    name: '',
+    type: '',
+    location: '',
+    status: 'active',
+    range: '',
+    accuracy: '',
+    lastCalibration: '',
+    nextCalibrationDue: '',
+  };
+  
+  const [formData, setFormData] = useState(device || initialFormData);
+  const [errors, setErrors] = useState({});
+
+  
+  useEffect(() => {
+    if (isOpen) {
+      
+      if (device) {
+        setFormData(device);
+      } else {
+        
+        setFormData(initialFormData);
+      }
+      setErrors({});
+    }
+  }, [isOpen, device]);
+
+  const handleClose = () => {
+    setFormData(initialFormData);
+    setErrors({});
+    onClose();
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    const result = device 
+      ? updateTransmitter(device.id, formData)
+      : createTransmitter(formData);
+    
+    if (result.success) {
+      handleClose();
+    } else {
+      setErrors(result.errors);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title={device ? 'Edit Device' : 'Create Device'} size="md">
+      <form onSubmit={handleSubmit}>
+        <Input
+          label="Device ID"
+          value={formData.id}
+          onChange={(e) => setFormData({...formData, id: e.target.value.toUpperCase()})}
+          error={errors.id?.[0]}
+          placeholder="Format: XX-000"
+          required
+        />
+        
+        <Input
+          label="Device Name"
+          value={formData.name}
+          onChange={(e) => setFormData({...formData, name: e.target.value})}
+          error={errors.name?.[0]}
+          required
+        />
+        
+        <Select
+          label="Type"
+          value={formData.type}
+          onChange={(e) => setFormData({...formData, type: e.target.value})}
+          options={[
+            { value: 'Pressure', label: 'Pressure' },
+            { value: 'Flow', label: 'Flow' },
+            { value: 'Level', label: 'Level' },
+            { value: 'Temperature', label: 'Temperature' }
+          ]}
+          error={errors.type?.[0]}
+          required
+        />
+        
+        <Input
+          label="Location"
+          value={formData.location}
+          onChange={(e) => setFormData({...formData, location: e.target.value})}
+          error={errors.location?.[0]}
+          required
+        />
+        
+        <Select
+          label="Status"
+          value={formData.status}
+          onChange={(e) => setFormData({...formData, status: e.target.value})}
+          options={[
+            { value: 'active', label: 'Active' },
+            { value: 'warning', label: 'Warning' },
+            { value: 'critical', label: 'Critical' }
+          ]}
+          error={errors.status?.[0]}
+          required
+        />
+        
+        <Input
+          label="Range"
+          value={formData.range}
+          onChange={(e) => setFormData({...formData, range: e.target.value})}
+          error={errors.range?.[0]}
+          required
+        />
+        
+        <Input
+          label="Accuracy"
+          value={formData.accuracy}
+          onChange={(e) => setFormData({...formData, accuracy: e.target.value})}
+          error={errors.accuracy?.[0]}
+          placeholder="±0.1%"
+          required
+        />
+        
+        <Input
+          label="Last Calibration"
+          type="date"
+          value={formData.lastCalibration}
+          onChange={(e) => setFormData({...formData, lastCalibration: e.target.value})}
+          error={errors.lastCalibration?.[0]}
+          required
+        />
+        
+        <Input
+          label="Next Calibration Due"
+          type="date"
+          value={formData.nextCalibrationDue}
+          onChange={(e) => setFormData({...formData, nextCalibrationDue: e.target.value})}
+          error={errors.nextCalibrationDue?.[0]}
+          required
+        />
+        
+        <div className="flex gap-3 mt-6">
+          <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1">
+            {device ? 'Update' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const DeleteConfirmModal = ({ isOpen, onClose, device, onConfirm }) => {
+  if (!device) return null;
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Delete Device">
+      <div className="text-center py-4">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="text-red-600" size={32} />
+        </div>
+        <h3 className="text-lg font-bold mb-2">Are you sure?</h3>
+        <p className="text-gray-600 mb-6">
+          Delete <strong>{device.name}</strong>? This action cannot be undone.
+        </p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={onClose} className="flex-1">
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={onConfirm} className="flex-1">
+            Delete
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// ============================================
+// PAGES
 // ============================================
 const Dashboard = () => {
-  const totalDevices = mockTransmitters.length;
-  const activeDevices = mockTransmitters.filter(t => t.status === 'active').length;
-  const warningDevices = mockTransmitters.filter(t => t.status === 'warning').length;
-  const overdueDevices = mockTransmitters.filter(t => new Date(t.nextCalibrationDue) < new Date()).length;
+  const { transmitters } = useData();
+  const totalDevices = transmitters.length;
+  const activeDevices = transmitters.filter(t => t.status === 'active').length;
+  const warningDevices = transmitters.filter(t => t.status === 'warning').length;
+  const overdueDevices = transmitters.filter(t => new Date(t.nextCalibrationDue) < new Date()).length;
   
   return (
     <div className="space-y-4 pb-20">
@@ -320,12 +707,16 @@ const Dashboard = () => {
 };
 
 const DeviceList = ({ onDeviceSelect }) => {
+  const { transmitters, deleteTransmitter } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingDevice, setEditingDevice] = useState(null);
+  const [deletingDevice, setDeletingDevice] = useState(null);
   
-  const filteredDevices = mockTransmitters.filter(device => {
+  const filteredDevices = transmitters.filter(device => {
     const matchesSearch = device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          device.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || device.type === filterType;
@@ -339,6 +730,11 @@ const DeviceList = ({ onDeviceSelect }) => {
     if (status === 'critical') return <Badge variant="danger">Critical</Badge>;
     return <Badge>Unknown</Badge>;
   };
+
+  const handleDelete = () => {
+    deleteTransmitter(deletingDevice.id);
+    setDeletingDevice(null);
+  };
   
   return (
     <div className="pb-20">
@@ -348,8 +744,8 @@ const DeviceList = ({ onDeviceSelect }) => {
             <h1 className="text-xl font-bold text-gray-900">Devices</h1>
             <p className="text-sm text-gray-600">{filteredDevices.length} transmitters</p>
           </div>
-          <Button size="sm">
-            <Plus className="h-4 w-4" />
+          <Button size="sm" icon={Plus} onClick={() => setShowCreateModal(true)} ariaLabel="Add new device">
+            Add
           </Button>
         </div>
         
@@ -361,12 +757,14 @@ const DeviceList = ({ onDeviceSelect }) => {
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Search devices"
           />
         </div>
         
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="text-sm text-blue-600 font-medium"
+          className="text-sm text-blue-600 font-medium focus:outline-none focus:underline"
+          aria-expanded={showFilters}
         >
           {showFilters ? 'Hide Filters' : 'Show Filters'}
         </button>
@@ -377,6 +775,7 @@ const DeviceList = ({ onDeviceSelect }) => {
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
+              aria-label="Filter by type"
             >
               <option value="all">All Types</option>
               <option value="Pressure">Pressure</option>
@@ -388,6 +787,7 @@ const DeviceList = ({ onDeviceSelect }) => {
               className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
+              aria-label="Filter by status"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -400,19 +800,28 @@ const DeviceList = ({ onDeviceSelect }) => {
       
       <div className="px-4 pt-3 space-y-3">
         {filteredDevices.map(device => (
-          <div
+          <Card
             key={device.id}
-            onClick={() => onDeviceSelect(device)}
-            className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer active:bg-gray-50 transition-colors"
+            className="p-4"
+            ariaLabel={`Device ${device.name}`}
           >
             <div className="flex items-start justify-between mb-2">
-              <div className="flex-1 min-w-0 mr-2">
+              <div 
+                className="flex-1 min-w-0 mr-2 cursor-pointer"
+                onClick={() => onDeviceSelect(device)}
+              >
                 <h3 className="font-semibold text-gray-900 text-sm truncate">{device.name}</h3>
                 <p className="text-xs text-gray-500">{device.id}</p>
               </div>
-              {getStatusBadge(device.status)}
+              <div className="flex gap-2 items-start">
+                {getStatusBadge(device.status)}
+              </div>
             </div>
-            <div className="space-y-1 text-xs text-gray-600">
+            
+            <div 
+              className="space-y-1 text-xs text-gray-600 cursor-pointer"
+              onClick={() => onDeviceSelect(device)}
+            >
               <div className="flex justify-between">
                 <span>Type:</span>
                 <span className="font-medium">{device.type}</span>
@@ -428,15 +837,42 @@ const DeviceList = ({ onDeviceSelect }) => {
                 </span>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Tap to view details</span>
-                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            
+            <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  icon={Edit2}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingDevice(device);
+                  }}
+                  ariaLabel={`Edit ${device.name}`}
+                />
+                <Button 
+                  variant="danger" 
+                  size="sm" 
+                  icon={Trash2}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeletingDevice(device);
+                  }}
+                  ariaLabel={`Delete ${device.name}`}
+                />
+              </div>
+              <button 
+                onClick={() => onDeviceSelect(device)}
+                className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+                aria-label="View device details"
+              >
+                View Details
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </div>
+              </button>
             </div>
-          </div>
+          </Card>
         ))}
         
         {filteredDevices.length === 0 && (
@@ -445,6 +881,22 @@ const DeviceList = ({ onDeviceSelect }) => {
           </div>
         )}
       </div>
+
+      <CreateEditTransmitterModal
+        isOpen={showCreateModal || editingDevice !== null}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingDevice(null);
+        }}
+        device={editingDevice}
+      />
+
+      <DeleteConfirmModal
+        isOpen={deletingDevice !== null}
+        onClose={() => setDeletingDevice(null)}
+        device={deletingDevice}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };
@@ -458,7 +910,11 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
     <div className="pb-20">
       <div className="px-4 pt-4 pb-3 bg-white border-b sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={onBack} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+          <button 
+            onClick={onBack} 
+            className="p-2 -ml-2 hover:bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Go back"
+          >
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
@@ -517,7 +973,7 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
           </div>
           
           {isOverdue && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
               <div className="flex items-start">
                 <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
                 <span className="text-sm font-medium text-red-800">
@@ -531,12 +987,13 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
             className="w-full mt-4" 
             onClick={onStartInspection}
             variant={isOverdue ? "danger" : "primary"}
+            icon={Camera}
           >
             Start Inspection
           </Button>
         </Card>
         
-        <Card className="p-4">
+        {/* <Card className="p-4">
           <h2 className="text-base font-semibold text-gray-900 mb-3">History</h2>
           <div className="space-y-3">
             <div className="flex items-start justify-between p-3 border rounded-lg">
@@ -548,11 +1005,43 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
               <Badge variant="success">Passed</Badge>
             </div>
           </div>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );
 };
+
+const checklistSteps = [
+  {
+    id: 'visual',
+    title: 'Visual Inspection',
+    items: [
+      { id: 'housing', label: 'Housing condition (no cracks, corrosion)', type: 'checkbox' },
+      { id: 'connections', label: 'Electrical connections secure', type: 'checkbox' },
+      { id: 'cables', label: 'Cable condition good', type: 'checkbox' },
+      { id: 'mounting', label: 'Mounting secure', type: 'checkbox' }
+    ]
+  },
+  {
+    id: 'functional',
+    title: 'Functional Test',
+    items: [
+      { id: 'display', label: 'Display readable', type: 'checkbox' },
+      { id: 'response', label: 'Response time acceptable', type: 'checkbox' },
+      { id: 'accuracy', label: 'Reading accuracy within spec', type: 'checkbox' },
+      { id: 'alarms', label: 'Alarm functions tested', type: 'checkbox' }
+    ]
+  },
+  {
+    id: 'documentation',
+    title: 'Documentation',
+    items: [
+      { id: 'photos', label: 'Photos taken', type: 'file' },
+      { id: 'notes', label: 'Additional notes', type: 'textarea' },
+      { id: 'signature', label: 'Inspector signature', type: 'signature' }
+    ]
+  }
+];
 
 const InspectionChecklist = ({ device, onComplete, onCancel }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -643,7 +1132,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
             <span>Step {currentStep + 1} of {checklistSteps.length}</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progress}%` }}
@@ -668,6 +1157,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                       className="w-5 h-5 mt-0.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                       checked={checklistData[currentStepData.id]?.[item.id] || false}
                       onChange={(e) => handleCheckboxChange(currentStepData.id, item.id, e.target.checked)}
+                      aria-label={item.label}
                     />
                     <span className="text-sm text-gray-900 flex-1">{item.label}</span>
                   </label>
@@ -684,6 +1174,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                       value={checklistData[currentStepData.id]?.[item.id] || ''}
                       onChange={(e) => handleTextareaChange(currentStepData.id, item.id, e.target.value)}
                       placeholder="Enter additional notes here..."
+                      aria-label={item.label}
                     />
                   </div>
                 )}
@@ -701,6 +1192,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                         onChange={handlePhotoUpload}
                         className="hidden"
                         id="photo-upload"
+                        aria-label="Upload inspection photos"
                       />
                       <label htmlFor="photo-upload" className="cursor-pointer block">
                         <Camera className="mx-auto h-12 w-12 text-gray-400 mb-3" />
@@ -724,11 +1216,11 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                               />
                               <button
                                 onClick={() => removePhoto(photo.id)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors"
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                                aria-label={`Remove photo ${photo.name}`}
                               >
                                 <X size={16} />
                               </button>
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all"></div>
                             </div>
                           ))}
                         </div>
@@ -750,17 +1242,10 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                       onClear={() => setSignature(null)}
                     />
                     {signature && (
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg" role="status">
                         <p className="text-sm text-green-700 flex items-center">
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Signature captured successfully
-                        </p>
-                      </div>
-                    )}
-                    {!signature && (
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-500">
-                          Draw your signature above and tap "Save"
                         </p>
                       </div>
                     )}
@@ -778,6 +1263,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
             disabled={currentStep === 0}
             className="flex-1"
             size="lg"
+            ariaLabel="Go to previous step"
           >
             ← Previous
           </Button>
@@ -788,6 +1274,7 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
               className="flex-1"
               size="lg"
               disabled={!signature}
+              ariaLabel="Complete inspection"
             >
               Complete ✓
             </Button>
@@ -796,14 +1283,14 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
               onClick={nextStep} 
               className="flex-1"
               size="lg"
+              ariaLabel="Go to next step"
             >
               Next →
             </Button>
           )}
         </div>
         
-        {/* Step Indicator */}
-        <div className="flex justify-center gap-2 pb-4">
+        <div className="flex justify-center gap-2 pb-4" role="tablist" aria-label="Inspection steps">
           {checklistSteps.map((step, idx) => (
             <div
               key={step.id}
@@ -814,6 +1301,9 @@ const InspectionChecklist = ({ device, onComplete, onCancel }) => {
                   ? 'w-2 bg-green-500' 
                   : 'w-2 bg-gray-300'
               }`}
+              role="tab"
+              aria-selected={idx === currentStep}
+              aria-label={`Step ${idx + 1}: ${step.title}`}
             />
           ))}
         </div>
@@ -833,19 +1323,48 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
   };
   
   const getCompletionStatus = () => {
-    const totalItems = checklistSteps.reduce((acc, step) => acc + step.items.length, 0);
-    let completedItems = 0;
-    
-    checklistSteps.forEach(step => {
-      step.items.forEach(item => {
+  const totalItems = checklistSteps.reduce((acc, step) => acc + step.items.length, 0);
+  let completedItems = 0;
+  
+  checklistSteps.forEach(step => {
+    step.items.forEach(item => {
+      // Cek tipe item dan kondisi pengisian
+      if (item.type === 'checkbox') {
+        // Untuk checkbox biasa
         if (inspectionData.checklist[step.id]?.[item.id]) {
           completedItems++;
         }
-      });
+      } else if (item.type === 'file') {
+        // Untuk photos
+        if (inspectionData.photos.length > 0) {
+          completedItems++;
+          // Update checklist data
+          if (!inspectionData.checklist[step.id]) {
+            inspectionData.checklist[step.id] = {};
+          }
+          inspectionData.checklist[step.id][item.id] = true;
+        }
+      } else if (item.type === 'textarea') {
+        // Untuk additional notes
+        if (inspectionData.checklist[step.id]?.[item.id]?.trim()) {
+          completedItems++;
+        }
+      } else if (item.type === 'signature') {
+        // Untuk signature
+        if (inspectionData.signature) {
+          completedItems++;
+          // Update checklist data
+          if (!inspectionData.checklist[step.id]) {
+            inspectionData.checklist[step.id] = {};
+          }
+          inspectionData.checklist[step.id][item.id] = true;
+        }
+      }
     });
-    
-    return { completed: completedItems, total: totalItems };
-  };
+  });
+  
+  return { completed: completedItems, total: totalItems };
+};
   
   const status = getCompletionStatus();
   const completionPercentage = Math.round((status.completed / status.total) * 100);
@@ -953,13 +1472,12 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
             </h2>
             <div className="grid grid-cols-3 gap-2">
               {inspectionData.photos.map(photo => (
-                <div key={photo.id}>
-                  <img
-                    src={photo.url}
-                    alt={photo.name}
-                    className="w-full h-20 object-cover rounded-lg border"
-                  />
-                </div>
+                <img
+                  key={photo.id}
+                  src={photo.url}
+                  alt={photo.name}
+                  className="w-full h-20 object-cover rounded-lg border"
+                />
               ))}
             </div>
           </Card>
@@ -974,7 +1492,7 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
           </div>
           
           {!inspectionData.signature && (
-            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" role="alert">
               <div className="flex items-start">
                 <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
                 <span className="text-sm text-yellow-800">
@@ -1005,7 +1523,7 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
 };
 
 // ============================================
-// MAIN APP COMPONENT - MOBILE VERSION
+// MAIN APP
 // ============================================
 const App = () => {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -1033,102 +1551,114 @@ const App = () => {
       setCurrentView('dashboard');
       setSelectedDevice(null);
       setInspectionData(null);
+      setShowSuccessModal(false);
     }, 2000);
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 max-w-md mx-auto relative">
-      {/* Header - Mobile */}
-      <header className="bg-white border-b sticky top-0 z-20">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center">
-            <Settings className="h-7 w-7 text-blue-600 mr-2" />
-            <h1 className="text-base font-bold text-gray-900">
-              Transmitter Check
-            </h1>
+    <DataProvider>
+      <div className="min-h-screen bg-gray-50 max-w-md mx-auto relative">
+        <OfflineBanner />
+        
+        <header className="bg-white border-b sticky top-0 z-20">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center">
+              <Settings className="h-7 w-7 text-blue-600 mr-2" />
+              <h1 className="text-base font-bold text-gray-900">
+                Transmitter Check
+              </h1>
+            </div>
+            <button className="p-2 text-gray-400 hover:text-gray-600 relative focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full" aria-label="Notifications">
+              <Bell className="h-6 w-6" />
+              <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" aria-label="1 new notification"></span>
+            </button>
           </div>
-          <button className="p-2 text-gray-400 hover:text-gray-600 relative">
-            <Bell className="h-6 w-6" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-          </button>
-        </div>
-      </header>
-      
-      {/* Main Content */}
-      <main className="min-h-screen">
-        {currentView === 'dashboard' && <Dashboard />}
-        {currentView === 'devices' && (
-          <DeviceList onDeviceSelect={handleDeviceSelect} />
-        )}
-        {currentView === 'device-detail' && (
-          <DeviceDetail
-            device={selectedDevice}
-            onBack={() => setCurrentView('devices')}
-            onStartInspection={handleStartInspection}
-          />
-        )}
-        {currentView === 'inspection' && (
-          <InspectionChecklist
-            device={selectedDevice}
-            onComplete={handleInspectionComplete}
-            onCancel={() => setCurrentView('device-detail')}
-          />
-        )}
-        {currentView === 'review' && (
-          <ReviewSubmit
-            inspectionData={inspectionData}
-            device={selectedDevice}
-            onSubmit={handleSubmitInspection}
-            onBack={() => setCurrentView('inspection')}
-          />
-        )}
-      </main>
-      
-      {/* Bottom Navigation - Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t max-w-md mx-auto z-20">
-        <div className="flex justify-around">
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className={`flex-1 flex flex-col items-center py-3 ${
-              currentView === 'dashboard'
-                ? 'text-blue-600'
-                : 'text-gray-400'
-            }`}
-          >
-            <Home className="h-6 w-6 mb-1" />
-            <span className="text-xs font-medium">Home</span>
-          </button>
-          <button
-            onClick={() => setCurrentView('devices')}
-            className={`flex-1 flex flex-col items-center py-3 ${
-              currentView === 'devices' || currentView === 'device-detail' || currentView === 'inspection' || currentView === 'review'
-                ? 'text-blue-600'
-                : 'text-gray-400'
-            }`}
-          >
-            <List className="h-6 w-6 mb-1" />
-            <span className="text-xs font-medium">Devices</span>
-          </button>
-        </div>
-      </nav>
-      
-      {/* Success Modal */}
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        title="Success"
-      >
-        <div className="text-center py-4">
-          <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Inspection Submitted!
-          </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Your inspection has been saved successfully
-          </p>
-        </div>
-      </Modal>
-    </div>
+        </header>
+        
+        <main className="min-h-screen">
+          {currentView === 'dashboard' && <Dashboard />}
+          {currentView === 'devices' && (
+            <DeviceList onDeviceSelect={handleDeviceSelect} />
+          )}
+          {currentView === 'device-detail' && (
+            <DeviceDetail
+              device={selectedDevice}
+              onBack={() => setCurrentView('devices')}
+              onStartInspection={handleStartInspection}
+            />
+          )}
+          {currentView === 'inspection' && (
+            <InspectionChecklist
+              device={selectedDevice}
+              onComplete={handleInspectionComplete}
+              onCancel={() => setCurrentView('device-detail')}
+            />
+          )}
+          {currentView === 'review' && (
+            <ReviewSubmit
+              inspectionData={inspectionData}
+              device={selectedDevice}
+              onSubmit={handleSubmitInspection}
+              onBack={() => setCurrentView('inspection')}
+            />
+          )}
+        </main>
+        
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t max-w-md mx-auto z-20" role="navigation" aria-label="Main navigation">
+          <div className="flex justify-around">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className={`flex-1 flex flex-col items-center py-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
+                currentView === 'dashboard'
+                  ? 'text-blue-600'
+                  : 'text-gray-400'
+              }`}
+              aria-label="Dashboard"
+              aria-current={currentView === 'dashboard' ? 'page' : undefined}
+            >
+              <Home className="h-6 w-6 mb-1" />
+              <span className="text-xs font-medium">Home</span>
+            </button>
+            <button
+              onClick={() => setCurrentView('devices')}
+              className={`flex-1 flex flex-col items-center py-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
+                currentView === 'devices' || currentView === 'device-detail' || currentView === 'inspection' || currentView === 'review'
+                  ? 'text-blue-600'
+                  : 'text-gray-400'
+              }`}
+              aria-label="Devices"
+              aria-current={currentView === 'devices' ? 'page' : undefined}
+            >
+              <List className="h-6 w-6 mb-1" />
+              <span className="text-xs font-medium">Devices</span>
+            </button>
+          </div>
+        </nav>
+        
+        <Modal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          title="Inspection Submitted"
+        >
+          <div className="text-center py-6 px-2">
+            <div className="mb-4 flex justify-center">
+              <div className="bg-green-100 rounded-full p-4">
+                <CheckCircle className="h-16 w-16 text-green-600" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Success!
+            </h3>
+            <p className="text-base text-gray-600 mb-6">
+              Your inspection has been saved successfully and will be synced when online.
+            </p>
+            <Button onClick={() => setShowSuccessModal(false)} className="w-full">
+              Close
+            </Button>
+          </div>
+        </Modal>
+      </div>
+    </DataProvider>
   );
 };
 
