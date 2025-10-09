@@ -3,7 +3,7 @@ import { Search, Plus, AlertTriangle, CheckCircle, Clock, Camera, X, Home, List,
 import { z } from 'zod';
 
 // ============================================
-// DESIGN TOKENS (CSS Variables Ready)
+// DESIGN TOKENS
 // ============================================
 const designTokens = {
   colors: {
@@ -18,7 +18,6 @@ const designTokens = {
   fontSize: { xs: '12px', sm: '14px', base: '16px', lg: '18px', xl: '20px' }
 };
 
-// Apply CSS Variables
 if (typeof document !== 'undefined') {
   const root = document.documentElement;
   root.style.setProperty('--color-primary', designTokens.colors.primary.main);
@@ -50,7 +49,7 @@ const inspectionSchema = z.object({
 });
 
 // ============================================
-// DATA CONTEXT (CRUD + Persistence)
+// DATA CONTEXT (CRUD)
 // ============================================
 const DataContext = createContext();
 
@@ -175,7 +174,7 @@ const useData = () => {
 };
 
 // ============================================
-// ATOMS (Basic Components)
+// Components
 // ============================================
 const Button = ({ variant = 'primary', size = 'md', children, className = '', icon: Icon, ariaLabel, ...props }) => {
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -275,9 +274,6 @@ const Badge = ({ variant = 'default', children }) => {
   );
 };
 
-// ============================================
-// MOLECULES (Composite Components)
-// ============================================
 const Modal = ({ isOpen, onClose, title, children, size = 'sm' }) => {
   if (!isOpen) return null;
   
@@ -437,9 +433,6 @@ const SignaturePad = ({ onSave, onClear }) => {
   );
 };
 
-// ============================================
-// ORGANISMS (Complex Components)
-// ============================================
 const CreateEditTransmitterModal = ({ isOpen, onClose, device = null }) => {
   const { createTransmitter, updateTransmitter } = useData();
   
@@ -993,7 +986,7 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
           </Button>
         </Card>
         
-        {/* <Card className="p-4">
+        <Card className="p-4">
           <h2 className="text-base font-semibold text-gray-900 mb-3">History</h2>
           <div className="space-y-3">
             <div className="flex items-start justify-between p-3 border rounded-lg">
@@ -1005,7 +998,7 @@ const DeviceDetail = ({ device, onBack, onStartInspection }) => {
               <Badge variant="success">Passed</Badge>
             </div>
           </div>
-        </Card> */}
+        </Card>
       </div>
     </div>
   );

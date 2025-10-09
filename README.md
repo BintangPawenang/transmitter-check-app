@@ -1,16 +1,58 @@
-# React + Vite
+📱 Transmitter Check App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Mobile-first web application for field inspection and calibration management of industrial transmitters (Pressure, Flow, Level, Temperature).
 
-Currently, two official plugins are available:
+🎯 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+✅ Mobile-First Design - Optimized for field use on smartphones/tablets
+✅ Multi-Step Inspection Form - Guided checklist with progress tracking
+✅ Digital Signature - Touch-enabled signature pad for accountability
+✅ Photo Upload - Multiple image attachments with preview
+✅ Real-time Validation - Zod schema validation per step
+✅ Mock API Integration - JSON Server for development
+✅ Offline-Ready - Service Worker support
+✅ Responsive Layout - Works on mobile (375px) to desktop (1280px+)
 
-## React Compiler
+🛠️ Tech Stack
+Frontend
 
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 18 - UI library
+- Vite - Build tool & dev server
+- Tailwind CSS - Utility-first CSS framework
+- Lucide React - Icon library
 
-## Expanding the ESLint configuration
+Validation & API
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- Zod - Schema validation
+- Axios - HTTP client
+- JSON Server - Mock REST API
+
+Development
+
+- ESLint - Code linting
+- PostCSS - CSS processing
+- Autoprefixer - CSS vendor prefixing
+
+🎨 Design System
+Colors
+
+Primary: Blue (#2563EB) - Actions, active states
+Success: Green (#16A34A) - Passed, active devices
+Warning: Yellow (#CA8A04) - Attention needed
+Danger: Red (#DC2626) - Critical, overdue
+
+Typography
+
+Heading XL: 20px Bold - Page titles
+Heading LG: 18px Semibold - Section titles
+Body SM: 14px Regular - Body text
+Caption XS: 12px Regular - Labels, captions
+
+Spacing
+Based on 8pt grid system (8px, 12px, 16px, 24px)
+
+👥 Authors
+
+Bintang Cahyo Wicaksono Pawenang
+
+https://transmitter-check-app.vercel.app
