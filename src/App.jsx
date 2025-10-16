@@ -2,9 +2,6 @@ import React, { useState, useRef, useEffect, createContext, useContext, useMemo,
 import { Search, Plus, AlertTriangle, CheckCircle, Clock, Camera, X, Home, List, Settings, Bell, ArrowLeft, Edit2, Trash2, WifiOff, Wifi } from 'lucide-react';
 import { z } from 'zod';
 
-// ============================================
-// DESIGN TOKENS (small improvements)
-// ============================================
 const designTokens = {
   colors: {
     primary: { main: '#2563eb', light: '#dbeafe', dark: '#1e40af' },
@@ -25,9 +22,6 @@ if (typeof document !== 'undefined') {
   root.style.setProperty('--spacing-md', designTokens.spacing.md);
 }
 
-// ============================================
-// ZOD VALIDATION SCHEMAS
-// ============================================
 const transmitterSchema = z.object({
   id: z.string().min(1, 'ID is required').regex(/^[A-Z]{2}-\d{3}$/, 'Format: XX-000'),
   name: z.string().min(5, 'Name must be at least 5 characters'),
@@ -48,9 +42,6 @@ const inspectionSchema = z.object({
   signature: z.string().min(10, 'Signature required'),
 });
 
-// ============================================
-// DATA CONTEXT (CRUD) - optimized
-// ============================================
 const DataContext = createContext();
 
 const safeParseJSON = (str, fallback) => {
@@ -195,9 +186,6 @@ const useData = () => {
   return context;
 };
 
-// ============================================
-// UI Primitives - memoized for performance
-// ============================================
 const Button = React.memo(({ variant = 'primary', size = 'md', children, className = '', icon: Icon, ariaLabel, ...props }) => {
   const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   const variants = {
@@ -325,9 +313,6 @@ const Modal = React.memo(({ isOpen, onClose, title, children, size = 'sm' }) => 
   );
 });
 
-// ============================================
-// Offline banner
-// ============================================
 const OfflineBanner = React.memo(() => {
   const { isOnline, pendingSync } = useData();
   if (isOnline && !pendingSync) return null;
@@ -342,9 +327,6 @@ const OfflineBanner = React.memo(() => {
   );
 });
 
-// ============================================
-// SignaturePad - improved for DPR and cleanup
-// ============================================
 const SignaturePad = ({ onSave, onClear }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -438,9 +420,6 @@ const SignaturePad = ({ onSave, onClear }) => {
   );
 };
 
-// ============================================
-// Create/Edit Modal - minor UX improvements
-// ============================================
 const CreateEditTransmitterModal = ({ isOpen, onClose, device = null }) => {
   const { createTransmitter, updateTransmitter } = useData();
 
@@ -545,9 +524,6 @@ const DeleteConfirmModal = ({ isOpen, onClose, device, onConfirm }) => {
   );
 };
 
-// ============================================
-// PAGES - small performance and bug fixes
-// ============================================
 const Dashboard = React.memo(() => {
   const { transmitters } = useData();
   const totalDevices = transmitters.length;
@@ -907,9 +883,6 @@ const ReviewSubmit = ({ inspectionData, device, onSubmit, onBack }) => {
   );
 };
 
-// ============================================
-// MAIN APP
-// ============================================
 const App = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedDevice, setSelectedDevice] = useState(null);
